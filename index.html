@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NeuroView - Multi-Layer Brain Viewer</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --surface-color: rgba(30, 34, 40, 0.85);
+            --accent-color: #00d2ff;
+            --accent-glow: rgba(0, 210, 255, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: #a0aab5;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --danger-color: #ff4b4b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: transparent;
+            color: var(--text-primary);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            background: transparent;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            object-fit: cover;
+            display: none;
+        }
+
+        #camera-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            border: 1px solid var(--glass-border);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        #camera-toggle:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #camera-toggle.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            background: var(--surface-color);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo span {
+            color: var(--accent-color);
+            font-size: 1.5em;
+            line-height: 0;
+        }
+
+        #intro-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            background: rgba(15, 17, 21, 0.8);
+            backdrop-filter: blur(5px);
+            transition: opacity 0.5s;
+        }
+
+        .card {
+            background: var(--surface-color);
+            padding: 40px;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .file-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        #layers-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            width: 260px;
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            padding: 15px;
+            z-index: 15;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            max-height: calc(100vh - 100px);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: max-height 0.3s ease-in-out;
+        }
+
+        #layers-panel.collapsed {
+            max-height: 60px;
+        }
+
+        #layers-panel.collapsed #layers-list,
+        #layers-panel.collapsed .file-wrapper {
+            display: none;
+        }
+
+        .panel-header {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .panel-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .toggle-icon {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #layers-panel.collapsed .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .layer-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .layer-name {
+            flex: 1;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .toggle {
+            width: 40px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle.active {
+            background: var(--accent-color);
+        }
+
+        .toggle.active::after {
+            transform: translateX(18px);
+        }
+
+        #bottom-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 15;
+            display: none;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            border: 1px solid var(--glass-border);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .icon-btn.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        #loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">NeuroView</div>
+    </header>
+
+    <button id="camera-toggle" title="Toggle AR Camera">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+    </button>
+
+    <video id="camera-feed" autoplay playsinline muted></video>
+    <div id="canvas-container"></div>
+
+    <div id="intro-ui">
+        <div class="card">
+            <h1>Multi-Layer Brain Viewer</h1>
+            <p>Upload 3D model files (.glb, .gltf) or select a folder containing models. You can load multiple models to
+                layer them in the viewer.
+            </p>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
+                <strong>Mobile users:</strong> Use "Load Files" button to select multiple files. On some devices, you
+                may need to select files one at a time.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="file-wrapper">
+                    <button class="btn" id="upload-files-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Load Files
+                    </button>
+                    <input type="file" id="file-input" multiple accept=".glb,.gltf">
+                </div>
+                <div class="file-wrapper">
+                    <button class="btn" id="upload-folder-btn"
+                        style="background: rgba(0, 210, 255, 0.15); color: var(--accent-color); box-shadow: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                            </path>
+                        </svg>
+                        Load Folder
+                    </button>
+                    <input type="file" id="folder-input" multiple webkitdirectory>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="layers-panel">
+        <div class="panel-header" id="layers-toggle">
+            <span>Layers</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="layer-count">0</span>
+                <div class="toggle-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="18 15 12 9 6 15"></polyline>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div id="layers-list">
+            <!-- Layer items will be dynamically inserted here -->
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <div class="file-wrapper">
+                <button class="btn" style="width: 100%; font-size: 0.9rem;">
+                    + Add Files
+                </button>
+                <input type="file" id="add-file-input" multiple accept=".glb,.gltf">
+            </div>
+            <div class="file-wrapper">
+                <button class="btn"
+                    style="width: 100%; background: rgba(0, 210, 255, 0.15); color: var(--accent-color); box-shadow: none; font-size: 0.9rem;">
+                    + Add Folder
+                </button>
+                <input type="file" id="add-folder-input" multiple webkitdirectory>
+            </div>
+        </div>
+    </div>
+
+    <div id="bottom-controls">
+        <button class="icon-btn" id="reset-view-btn" title="Reset Camera View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+                <path d="M12 15V9"></path>
+                <path d'm15 12-3-3-3 3'"></path>
+            </svg>
+        </button>
+        <button class="icon-btn" id="draw-btn" title="Toggle Drawing">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+        </button>
+        <button class="icon-btn" id="clear-draw-btn" title="Clear Drawings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <path d="M10 11v6"></path>
+                <path d="M14 11v6"></path>
+            </svg>
+        </button>
+    </div>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <p>Loading Model...</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- App State ---
+        const state = {
+            models: [],
+            scene: null,
+            camera: null,
+            renderer: null,
+            controls: null,
+            isDrawingMode: false,
+            isDrawing: false,
+            drawingPoints: [],
+            currentDrawingLine: null,
+            drawnAnnotations: [],
+            raycaster: new THREE.Raycaster(),
+            mouse: new THREE.Vector2(),
+            cameraStream: null,
+        };
+
+        // --- Initialization ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            state.scene = new THREE.Scene();
+
+            // Camera
+            state.camera = new THREE.PerspectiveCamera(50, container.offsetWidth / container.offsetHeight, 0.1, 2000);
+            state.camera.position.set(0, 0, 150);
+
+            // Renderer
+            state.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            state.renderer.setSize(container.offsetWidth, container.offsetHeight);
+            state.renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(state.renderer.domElement);
+
+            // Controls
+            state.controls = new OrbitControls(state.camera, state.renderer.domElement);
+            state.controls.enableDamping = true;
+            state.controls.dampingFactor = 0.05;
+            state.controls.screenSpacePanning = false;
+            state.controls.minDistance = 10;
+            state.controls.maxDistance = 500;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            state.scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(50, 50, 100);
+            state.scene.add(directionalLight);
+
+            // Handle Resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Drawing Listeners
+            state.renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            state.renderer.domElement.addEventListener('pointermove', onPointerMove);
+            state.renderer.domElement.addEventListener('pointerup', onPointerUp);
+            document.getElementById('draw-btn').addEventListener('click', toggleDrawingMode);
+            document.getElementById('clear-draw-btn').addEventListener('click', clearAnnotations);
+
+
+            // Start animation loop
+            animate();
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            state.controls.update();
+            state.renderer.render(state.scene, state.camera);
+        }
+
+        // --- Window Resize ---
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            state.camera.aspect = container.offsetWidth / container.offsetHeight;
+            state.camera.updateProjectionMatrix();
+            state.renderer.setSize(container.offsetWidth, container.offsetHeight);
+        }
+
+        // --- Model Loading ---
+        async function loadFiles(files) {
+            if (files.length === 0) return;
+
+            // Filter for .glb and .gltf files only
+            const validFiles = Array.from(files).filter(file => {
+                const ext = file.name.toLowerCase().split('.').pop();
+                return ext === 'glb' || ext === 'gltf';
+            });
+
+            if (validFiles.length === 0) {
+                alert('No valid GLB or GLTF files found. Please select 3D model files.');
+                return;
+            }
+
+            document.getElementById('intro-ui').style.opacity = 0;
+            setTimeout(() => document.getElementById('intro-ui').style.display = 'none', 500);
+
+            document.getElementById('loader').style.display = 'flex';
+
+            const loader = new GLTFLoader();
+            const newModels = [];
+
+            for (const file of validFiles) {
+                const url = URL.createObjectURL(file);
+                try {
+                    const gltf = await loader.loadAsync(url);
+                    const modelObject = gltf.scene;
+
+                    const modelName = file.name.replace(/\.[^/.]+$/, "");
+
+                    const isTumor = modelName.toLowerCase().includes('mass');
+                    modelObject.userData.isTumor = isTumor;
+
+                    if (!isTumor) {
+                        modelObject.traverse(child => {
+                            if (child.isMesh && child.material) {
+                                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                                materials.forEach(material => {
+                                    material.transparent = true;
+                                    material.opacity = 0.5;
+                                    material.needsUpdate = true;
+                                });
+                            }
+                        });
+                    }
+
+                    newModels.push({
+                        name: modelName,
+                        object: modelObject,
+                        visible: true,
+                    });
+                    state.scene.add(modelObject);
+                } catch (error) {
+                    console.error('Error loading model:', error);
+                    alert(`Failed to load ${file.name}. See console for details.`);
+                }
+                URL.revokeObjectURL(url);
+            }
+
+            state.models = [...state.models, ...newModels];
+
+            updateLayersPanel();
+            fitCameraToScene();
+
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('layers-panel').style.display = 'flex';
+            document.getElementById('bottom-controls').style.display = 'flex';
+        }
+
+        function fitCameraToScene() {
+            if (state.models.length === 0) return;
+
+            const box = new THREE.Box3();
+            state.models.forEach(m => {
+                box.expandByObject(m.object);
+            });
+
+            if (box.isEmpty()) return;
+
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = state.camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            cameraZ *= 1.5; // Zoom out a bit
+
+            state.camera.position.set(center.x, center.y, center.z + cameraZ);
+            state.controls.target.copy(center);
+            state.camera.lookAt(center);
+            state.controls.update();
+        }
+
+        // --- Drawing Logic ---
+        function toggleDrawingMode() {
+            state.isDrawingMode = !state.isDrawingMode;
+            const drawBtn = document.getElementById('draw-btn');
+            drawBtn.classList.toggle('active', state.isDrawingMode);
+            state.controls.enabled = !state.isDrawingMode;
+        }
+
+        function onPointerDown(event) {
+            if (!state.isDrawingMode) return;
+            state.isDrawing = true;
+            state.controls.enabled = false;
+
+            state.drawingPoints = [];
+            // Remove previous temporary line if it exists
+            if (state.currentDrawingLine) {
+                state.scene.remove(state.currentDrawingLine);
+                state.currentDrawingLine.geometry.dispose();
+                state.currentDrawingLine.material.dispose();
+            }
+        }
+
+        function onPointerMove(event) {
+            if (!state.isDrawingMode || !state.isDrawing) return;
+
+            const canvas = state.renderer.domElement;
+            const rect = canvas.getBoundingClientRect();
+            state.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            state.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            state.raycaster.setFromCamera(state.mouse, state.camera);
+
+            const tumorModels = state.models.filter(m => m.object.userData.isTumor).map(m => m.object);
+            if (tumorModels.length === 0) return;
+
+            const intersects = state.raycaster.intersectObjects(tumorModels, true);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                state.drawingPoints.push(intersect.point.clone());
+
+                // Update temporary line for visual feedback
+                if (state.drawingPoints.length > 1) {
+                    if (state.currentDrawingLine) {
+                        state.scene.remove(state.currentDrawingLine);
+                        state.currentDrawingLine.geometry.dispose();
+                    }
+                    const geometry = new THREE.BufferGeometry().setFromPoints(state.drawingPoints);
+                    const material = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 3 });
+                    state.currentDrawingLine = new THREE.Line(geometry, material);
+                    state.scene.add(state.currentDrawingLine);
+                }
+            }
+        }
+
+        function onPointerUp() {
+            if (!state.isDrawingMode || !state.isDrawing) return;
+
+            state.isDrawing = false;
+            state.controls.enabled = true;
+
+            // Remove the temporary line
+            if (state.currentDrawingLine) {
+                state.scene.remove(state.currentDrawingLine);
+                state.currentDrawingLine.geometry.dispose();
+                state.currentDrawingLine.material.dispose();
+                state.currentDrawingLine = null;
+            }
+
+            // Create the final annotation if we have enough points
+            if (state.drawingPoints.length > 1) {
+                createAnnotationTube(state.drawingPoints);
+            }
+            state.drawingPoints = [];
+        }
+
+        function createAnnotationTube(points) {
+            const curve = new THREE.CatmullRomCurve3(points);
+            const geometry = new THREE.TubeGeometry(curve, Math.max(1, points.length * 2), 1.2, 8, false);
+
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                emissive: 0x000000,
+                emissiveIntensity: 0,
+                side: THREE.DoubleSide
+            });
+
+            const tube = new THREE.Mesh(geometry, material);
+            state.scene.add(tube);
+            state.drawnAnnotations.push(tube);
+        }
+
+        function clearAnnotations() {
+            state.drawnAnnotations.forEach(annotation => {
+                state.scene.remove(annotation);
+                annotation.geometry.dispose();
+                annotation.material.dispose();
+            });
+            state.drawnAnnotations = [];
+        }
+
+
+        // --- UI Logic ---
+        function updateLayersPanel() {
+            const list = document.getElementById('layers-list');
+            const count = document.getElementById('layer-count');
+            list.innerHTML = '';
+            count.textContent = state.models.length;
+
+            state.models.forEach((model) => {
+                const item = document.createElement('div');
+                item.className = 'layer-item';
+
+                const name = document.createElement('div');
+                name.className = 'layer-name';
+                name.textContent = model.name;
+
+                const toggle = document.createElement('div');
+                toggle.className = `toggle ${model.visible ? 'active' : ''}`;
+                toggle.onclick = () => {
+                    model.visible = !model.visible;
+                    model.object.visible = model.visible;
+                    toggle.classList.toggle('active');
+                };
+
+                item.appendChild(name);
+                item.appendChild(toggle);
+                list.appendChild(item);
+            });
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('file-input').addEventListener('change', (e) => loadFiles(e.target.files));
+        document.getElementById('folder-input').addEventListener('change', (e) => loadFiles(e.target.files));
+        document.getElementById('add-file-input').addEventListener('change', (e) => loadFiles(e.target.files));
+        document.getElementById('add-folder-input').addEventListener('change', (e) => loadFiles(e.target.files));
+        document.getElementById('reset-view-btn').addEventListener('click', fitCameraToScene);
+
+        // Toggle Layers Panel
+        document.getElementById('layers-toggle').addEventListener('click', () => {
+            const panel = document.getElementById('layers-panel');
+            panel.classList.toggle('collapsed');
+        });
+
+        // Toggle AR Camera
+        document.getElementById('camera-toggle').addEventListener('click', async () => {
+            const videoElement = document.getElementById('camera-feed');
+            const cameraBtn = document.getElementById('camera-toggle');
+
+            if (state.cameraStream) {
+                // Stop camera
+                state.cameraStream.getTracks().forEach(track => track.stop());
+                state.cameraStream = null;
+                videoElement.style.display = 'none';
+                cameraBtn.classList.remove('active');
+            } else {
+                // Start camera
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment', // Use rear camera on mobile
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        }
+                    });
+                    state.cameraStream = stream;
+                    videoElement.srcObject = stream;
+                    videoElement.style.display = 'block';
+                    cameraBtn.classList.add('active');
+                } catch (error) {
+                    console.error('Error accessing camera:', error);
+                    alert('Unable to access camera. Please check permissions.');
+                }
+            }
+        });
+
+        // Initialize
+        init();
+
+    </script>
+</body>
+
+</html>
