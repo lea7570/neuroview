@@ -806,7 +806,7 @@
                         state.currentDrawingLine.geometry.dispose();
                     }
                     const geometry = new THREE.BufferGeometry().setFromPoints(state.drawingPoints);
-                    const material = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 3 });
+                    const material = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
                     state.currentDrawingLine = new THREE.Line(geometry, material);
                     state.scene.add(state.currentDrawingLine);
                 }
@@ -839,9 +839,9 @@
             const geometry = new THREE.TubeGeometry(curve, Math.max(1, points.length * 2), 1.2, 8, false);
 
             const material = new THREE.MeshBasicMaterial({
-                color: 0x000000,
-                emissive: 0x000000,
-                emissiveIntensity: 0,
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 1.5,
                 side: THREE.DoubleSide
             });
 
