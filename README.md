@@ -23,7 +23,7 @@ An interactive 3D brain scan viewer with augmented reality support, built with T
 
 ## Live Demo
 
-🔗 [Open NeuroView](https://yourusername.github.io/neuroview)
+🔗 [Open NeuroView](https://lea7570.github.io/neuroview)
 
 ## Requirements
 
